@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Car Wash Time & Pay Tracker</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #f6f7fb; color: #111; }
+    header { padding: 18px 16px; background: #ffffff; border-bottom: 1px solid #e7e8ee; position: sticky; top: 0; z-index: 10; }
+    header h1 { margin: 0 0 6px; font-size: 18px; }
+    header p { margin: 0; color: #555; font-size: 13px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; grid-template-columns: 1fr; }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 920px) { .grid { grid-template-columns: 460px 1fr; } }
+    .card { background: #fff; border: 1px solid #e7e8ee; border-radius: 14px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .card h2 { margin: 0 0 10px; font-size: 15px; }
+    label { display: block; font-size: 12px; color: #444; margin: 8px 0 6px; }
+    input, select, button { width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: 1px solid #d8dae6; background: #fff; font-size: 14px; }
+    input[type="time"], input[type="date"] { padding: 9px 10px; }
+    .row { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .row3 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr 1fr; }
+    .btn { cursor: pointer; border: 1px solid #111; background: #111; color: #fff; font-weight: 700; }
+    .btn.secondary { border-color: #cfd2e2; background: #fff; color: #111; font-weight: 700; }
+    .btn.danger { border-color: #d33; background: #d33; }
+    .muted { color: #666; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eef0f6; font-size: 13px; }
+    th { color: #444; font-size: 12px; }
+    .pill { display:inline-block; padding: 3px 8px; border-radius: 999px; background:#f1f2f7; font-size:12px; color:#333; }
+    .totals { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    @media (min-width: 920px) { .totals { grid-template-columns: repeat(4, 1fr); } }
+    .big { font-size: 18px; font-weight: 900; margin-top: 3px; }
+    .footerRow { display:grid; gap:10px; grid-template-columns: 1fr; }
+    @media (min-width: 520px) { .footerRow { grid-template-columns: 1fr 1fr; } }
+    .right { text-align: right; }
+    .nowrap { white-space: nowrap; }
+
+    .clockWrap { border: 1px solid #eef0f6; border-radius: 14px; padding: 12px; background: #fbfbfe; }
+    .clockGrid { display:grid; gap:10px; grid-template-columns: 1fr; }
+    @media (min-width: 520px) { .clockGrid { grid-template-columns: 1fr 1fr; } }
+    .clockTimer { font-size: 28px; font-weight: 900; letter-spacing: 0.5px; }
+    .clockMeta { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Car Wash Time & Pay Tracker</h1>
+    <p>Clock in/out like a punch clock + totals for week/year. Saved on this device.</p>
+  </header>
+
+  <main>
+    <div class="grid">
+      <section class="card">
+        <h2>Clock In / Clock Out</h2>
+
+        <div class="clockWrap">
+          <div class="clockGrid">
+            <div>
+              <div class="muted">Status</div>
+              <div id="clockStatus" class="big">Not clocked in</div>
+              <div class="clockMeta">
+                <span class="pill" id="clockStartPill" style="display:none;"></span>
+                <span class="pill" id="clockRatePill">Rate: $20/hr</span>
+              </div>
+            </div>
+            <div>
+              <div class="muted">Elapsed</div>
+              <div id="clockTimer" class="clockTimer">00:00:00</div>
+              <div class="muted" id="clockHint" style="margin-top:6px;">
+                Tip: Clock in when you arrive. Clock out when you leave.
+              </div>
+            </div>
+          </div>
+
+          <div class="footerRow" style="margin-top:12px;">
+            <button class="btn" id="clockInBtn">Clock In</button>
+            <button class="btn danger" id="clockOutBtn" disabled>Clock Out</button>
+          </div>
+        </div>
+
+        <h2 style="margin-top:14px;">Manual entry (optional)</h2>
+
+        <label>Hourly rate ($/hr)</label>
+        <input id="rate" type="number" step="0.01" min="0" value="20" />
+
+        <label>Date</label>
+        <input id="date" type="date" />
+
+        <div class="row">
+          <div>
+            <label>Start time</label>
+            <input id="start" type="time" />
+          </div>
+          <div>
+            <label>End time</label>
+            <input id="end" type="time" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Break (minutes)</label>
+            <input id="breakMin" type="number" min="0" step="1" value="0" />
+          </div>
+          <div>
+            <label>Actual pay received ($)</label>
+            <input id="actualPay" type="number" step="0.01" min="0" placeholder="Leave blank if not paid yet" />
+          </div>
+        </div>
+
+        <label>Notes (optional)</label>
+        <input id="notes" type="text" placeholder="e.g., covered shift, repairs, extra pay, etc." />
+
+        <div class="footerRow" style="margin-top:12px;">
+          <button class="btn secondary" id="addBtn">Add shift manually</button>
+          <button class="btn secondary" id="clearFormBtn">Clear form</button>
+        </div>
+
+        <p class="muted" style="margin:10px 0 0;">
+          Overnight shifts aren’t supported yet (crossing midnight). If that ever happens, tell me and I’ll upgrade it.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Dashboard</h2>
+
+        <div class="row3">
+          <div>
+            <label>View</label>
+            <select id="viewMode">
+              <option value="week">This week</option>
+              <option value="year">This year</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div>
+            <label>Week starts on</label>
+            <select id="weekStart">
+              <option value="0">Sunday</option>
+              <option value="1" selected>Monday</option>
+            </select>
+          </div>
+          <div>
+            <label>Year</label>
+            <select id="yearSelect"></select>
+          </div>
+        </div>
+
+        <div class="totals" style="margin-top:12px;">
+          <div class="card" style="padding:10px; border-radius:12px; border-color:#eef0f6; box-shadow:none;">
+            <div class="muted">Hours</div>
+            <div class="big" id="totalHours">0.00</div>
+          </div>
+          <div class="card" style="padding:10px; border-radius:12px; border-color:#eef0f6; box-shadow:none;">
+            <div class="muted">Expected pay</div>
+            <div class="big" id="expectedPayTotal">$0.00</div>
+          </div>
+          <div class="card" style="padding:10px; border-radius:12px; border-color:#eef0f6; box-shadow:none;">
+            <div class="muted">Actual paid</div>
+            <div class="big" id="actualPayTotal">$0.00</div>
+          </div>
+          <div class="card" style="padding:10px; border-radius:12px; border-color:#eef0f6; box-shadow:none;">
+            <div class="muted">Extra vs expected</div>
+            <div class="big" id="deltaPay">$0.00</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn secondary" id="exportBtn" style="flex:1; min-width:180px;">Export CSV</button>
+          <button class="btn secondary" id="importBtn" style="flex:1; min-width:180px;">Import CSV</button>
+          <button class="btn danger" id="wipeBtn" style="flex:1; min-width:180px;">Wipe all data</button>
+        </div>
+
+        <input id="importFile" type="file" accept=".csv" style="display:none;" />
+
+        <h2 style="margin-top:14px;">Shifts</h2>
+        <div class="muted" id="rangeLabel" style="margin:-6px 0 10px;"></div>
+
+        <div style="overflow:auto; border:1px solid #eef0f6; border-radius:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="nowrap">Start–End</th>
+                <th class="right nowrap">Break</th>
+                <th class="right nowrap">Hours</th>
+                <th class="right nowrap">Expected</th>
+                <th class="right nowrap">Actual</th>
+                <th>Notes</th>
+                <th class="right"> </th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "cw_time_pay_tracker_v2";
+    const ACTIVE_SHIFT_KEY = "cw_active_shift_v1";
+
+    function money(n) {
+      const x = Number(n || 0);
+      return x.toLocaleString(undefined, { style: "currency", currency: "USD" });
+    }
+
+    function pad2(n){ return String(n).padStart(2, "0"); }
+
+    function parseTimeToMinutes(t) {
+      if (!t || !t.includes(":")) return null;
+      const [h, m] = t.split(":").map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h * 60 + m;
+    }
+
+    function hoursBetween(startStr, endStr, breakMin) {
+      const s = parseTimeToMinutes(startStr);
+      const e = parseTimeToMinutes(endStr);
+      if (s === null || e === null) return null;
+
+      let mins = e - s;
+      if (mins < 0) return null; // no overnight in this version
+
+      mins -= Number(breakMin || 0);
+      if (mins < 0) mins = 0;
+
+      return mins / 60;
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr;
+      } catch {
+        return [];
+      }
+    }
+
+    function saveData(items) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+
+    function uid() {
+      return Math.random().toString(16).slice(2) + Date.now().toString(16);
+    }
+
+    function toISODate(d) {
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    }
+
+    function toHM(d) {
+      return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    }
+
+    function startOfWeek(date, weekStart) {
+      const d = new Date(date);
+      d.setHours(0,0,0,0);
+      const day = d.getDay(); // 0 Sun
+      const ws = Number(weekStart); // 0 Sun, 1 Mon
+      const diff = (day - ws + 7) % 7;
+      d.setDate(d.getDate() - diff);
+      return d;
+    }
+
+    function endOfWeek(date, weekStart) {
+      const s = startOfWeek(date, weekStart);
+      const e = new Date(s);
+      e.setDate(e.getDate() + 6);
+      return e;
+    }
+
+    function withinRange(iso, minDate, maxDate) {
+      const d = new Date(iso + "T00:00:00");
+      d.setHours(0,0,0,0);
+      return d >= minDate && d <= maxDate;
+    }
+
+    function currentYear() {
+      return new Date().getFullYear();
+    }
+
+    function computeExpected(item) {
+      const rate = Number(item.rate || 0);
+      const hrs = Number(item.hours || 0);
+      return rate * hrs;
+    }
+
+    // Elements
+    const rateEl = document.getElementById("rate");
+    const dateEl = document.getElementById("date");
+    const startEl = document.getElementById("start");
+    const endEl = document.getElementById("end");
+    const breakEl = document.getElementById("breakMin");
+    const actualPayEl = document.getElementById("actualPay");
+    const notesEl = document.getElementById("notes");
+
+    const addBtn = document.getElementById("addBtn");
+    const clearFormBtn = document.getElementById("clearFormBtn");
+
+    const viewModeEl = document.getElementById("viewMode");
+    const weekStartEl = document.getElementById("weekStart");
+    const yearSelectEl = document.getElementById("yearSelect");
+
+    const totalHoursEl = document.getElementById("totalHours");
+    const expectedPayTotalEl = document.getElementById("expectedPayTotal");
+    const actualPayTotalEl = document.getElementById("actualPayTotal");
+    const deltaPayEl = document.getElementById("deltaPay");
+
+    const rowsEl = document.getElementById("rows");
+    const rangeLabelEl = document.getElementById("rangeLabel");
+
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
+    const importFileEl = document.getElementById("importFile");
+    const wipeBtn = document.getElementById("wipeBtn");
+
+    // Clock UI
+    const clockInBtn = document.getElementById("clockInBtn");
+    const clockOutBtn = document.getElementById("clockOutBtn");
+    const clockStatusEl = document.getElementById("clockStatus");
+    const clockTimerEl = document.getElementById("clockTimer");
+    const clockStartPillEl = document.getElementById("clockStartPill");
+    const clockRatePillEl = document.getElementById("clockRatePill");
+
+    // Defaults
+    dateEl.value = toISODate(new Date());
+
+    function setClockRatePill() {
+      const r = Number(rateEl.value || 0);
+      clockRatePillEl.textContent = `Rate: ${money(r)}/hr`.replace(".00/hr", "/hr");
+    }
+
+    rateEl.addEventListener("input", () => {
+      setClockRatePill();
+      // If clocked in, also update active shift rate (optional)
+      const active = loadActiveShift();
+      if (active) {
+        active.rate = Number(rateEl.value || 0);
+        saveActiveShift(active);
+      }
+      render();
+    });
+
+    function rebuildYearOptions(items) {
+      const years = new Set(items.map(x => Number((x.date || "").slice(0,4))).filter(Boolean));
+      years.add(currentYear());
+      const sorted = Array.from(years).sort((a,b)=>b-a);
+
+      yearSelectEl.innerHTML = "";
+      for (const y of sorted) {
+        const opt = document.createElement("option");
+        opt.value = String(y);
+        opt.textContent = String(y);
+        yearSelectEl.appendChild(opt);
+      }
+      yearSelectEl.value = String(currentYear());
+    }
+
+    function getFilterRange(items) {
+      const mode = viewModeEl.value;
+      const ws = weekStartEl.value;
+      const now = new Date();
+
+      if (mode === "week") {
+        const s = startOfWeek(now, ws);
+        const e = endOfWeek(now, ws);
+        return { s, e, label: `${s.toLocaleDateString()} – ${e.toLocaleDateString()} (This week)` };
+      }
+
+      if (mode === "year") {
+        const y = Number(yearSelectEl.value || currentYear());
+        const s = new Date(y, 0, 1); s.setHours(0,0,0,0);
+        const e = new Date(y, 11, 31); e.setHours(0,0,0,0);
+        return { s, e, label: `Year view: ${y}` };
+      }
+
+      // all
+      if (items.length === 0) {
+        return { s: new Date(currentYear(),0,1), e: new Date(currentYear(),11,31), label: `All time (no entries yet)` };
+      }
+      const dates = items.map(x => new Date((x.date||toISODate(new Date())) + "T00:00:00"));
+      const min = new Date(Math.min(...dates)); min.setHours(0,0,0,0);
+      const max = new Date(Math.max(...dates)); max.setHours(0,0,0,0);
+      return { s: min, e: max, label: `All time: ${min.toLocaleDateString()} – ${max.toLocaleDateString()}` };
+    }
+
+    function render() {
+      const items = loadData();
+      rebuildYearOptions(items);
+
+      const { s, e, label } = getFilterRange(items);
+      rangeLabelEl.textContent = label;
+
+      const filtered = items
+        .filter(x => x.date && withinRange(x.date, s, e))
+        .sort((a,b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
+
+      // Totals
+      let totalHours = 0;
+      let expectedTotal = 0;
+      let actualTotal = 0;
+
+      for (const it of filtered) {
+        const hrs = Number(it.hours || 0);
+        totalHours += hrs;
+        expectedTotal += computeExpected(it);
+        actualTotal += Number(it.actualPay || 0);
+      }
+
+      totalHoursEl.textContent = totalHours.toFixed(2);
+      expectedPayTotalEl.textContent = money(expectedTotal);
+      actualPayTotalEl.textContent = money(actualTotal);
+      deltaPayEl.textContent = money(actualTotal - expectedTotal);
+
+      // Rows
+      rowsEl.innerHTML = "";
+      for (const it of filtered) {
+        const tr = document.createElement("tr");
+
+        const startEnd = (it.start && it.end) ? `${it.start}–${it.end}` : "";
+        const breakTxt = `${Number(it.breakMin || 0)} min`;
+        const expected = computeExpected(it);
+
+        tr.innerHTML = `
+          <td class="nowrap">${it.date || ""}</td>
+          <td class="nowrap">${startEnd}</td>
+          <td class="right nowrap">${breakTxt}</td>
+          <td class="right nowrap">${Number(it.hours || 0).toFixed(2)}</td>
+          <td class="right nowrap">${money(expected)}</td>
+          <td class="right nowrap">${it.actualPay ? money(it.actualPay) : "<span class='pill'>Not entered</span>"}</td>
+          <td>${(it.notes || "").replaceAll("<","&lt;").replaceAll(">","&gt;")}</td>
+          <td class="right"><button class="btn secondary" data-del="${it.id}" style="padding:6px 10px; border-radius:10px;">Delete</button></td>
+        `;
+        rowsEl.appendChild(tr);
+      }
+
+      // Wire delete
+      document.querySelectorAll("[data-del]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-del");
+          const next = loadData().filter(x => x.id !== id);
+          saveData(next);
+          render();
+        });
+      });
+
+      // Update clock UI
+      syncClockUI();
+    }
+
+    // ---- Active shift (clock in/out) ----
+    function loadActiveShift() {
+      try {
+        const raw = localStorage.getItem(ACTIVE_SHIFT_KEY);
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (!obj || !obj.startMs) return null;
+        return obj;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveActiveShift(obj) {
+      localStorage.setItem(ACTIVE_SHIFT_KEY, JSON.stringify(obj));
+    }
+
+    function clearActiveShift() {
+      localStorage.removeItem(ACTIVE_SHIFT_KEY);
+    }
+
+    function formatElapsed(ms) {
+      const totalSec = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+    }
+
+    let clockInterval = null;
+
+    function syncClockUI() {
+      const active = loadActiveShift();
+      if (!active) {
+        clockStatusEl.textContent = "Not clocked in";
+        clockTimerEl.textContent = "00:00:00";
+        clockStartPillEl.style.display = "none";
+        clockInBtn.disabled = false;
+        clockOutBtn.disabled = true;
+        if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+        return;
+      }
+
+      clockStatusEl.textContent = "Clocked in";
+      const start = new Date(active.startMs);
+      clockStartPillEl.style.display = "inline-block";
+      clockStartPillEl.textContent = `Started: ${start.toLocaleString()}`;
+
+      clockInBtn.disabled = true;
+      clockOutBtn.disabled = false;
+
+      // live timer
+      const tick = () => {
+        const now = Date.now();
+        clockTimerEl.textContent = formatElapsed(now - active.startMs);
+      };
+      tick();
+
+      if (!clockInterval) {
+        clockInterval = setInterval(() => {
+          // in case the active shift changes in another tab
+          const a = loadActiveShift();
+          if (!a) {
+            syncClockUI();
+            return;
+          }
+          const now = Date.now();
+          clockTimerEl.textContent = formatElapsed(now - a.startMs);
+        }, 1000);
+      }
+    }
+
+    clockInBtn.addEventListener("click", () => {
+      const active = loadActiveShift();
+      if (active) {
+        alert("You are already clocked in.");
+        return;
+      }
+
+      const rate = Number(rateEl.value || 0);
+      const startMs = Date.now();
+
+      const obj = {
+        startMs,
+        rate
+      };
+
+      saveActiveShift(obj);
+      syncClockUI();
+    });
+
+    clockOutBtn.addEventListener("click", () => {
+      const active = loadActiveShift();
+      if (!active) return;
+
+      const endMs = Date.now();
+      const start = new Date(active.startMs);
+      const end = new Date(endMs);
+
+      // Basic same-day assumption
+      const dateISO = toISODate(start);
+      if (toISODate(start) !== toISODate(end)) {
+        alert("This shift crossed midnight. This version doesn’t support overnight shifts yet.");
+        return;
+      }
+
+      const startHM = toHM(start);
+      const endHM = toHM(end);
+
+      const breakMinStr = prompt("Break minutes? (enter 0 if none)", "0");
+      if (breakMinStr === null) return; // canceled
+      const breakMin = Math.max(0, Number(breakMinStr || 0));
+
+      const hrs = hoursBetween(startHM, endHM, breakMin);
+      if (hrs === null) {
+        alert("Something looked off with the times. Try manual entry for this one.");
+        return;
+      }
+
+      const actualPayStr = prompt("Actual pay received for this shift? (optional)", "");
+      if (actualPayStr === null) return; // canceled
+      const actualPay = actualPayStr.trim() === "" ? 0 : Number(actualPayStr);
+
+      const notes = prompt("Notes? (optional)", "") ?? "";
+
+      const item = {
+        id: uid(),
+        rate: Number(active.rate || Number(rateEl.value || 0)),
+        date: dateISO,
+        start: startHM,
+        end: endHM,
+        breakMin,
+        hours: Number(hrs.toFixed(4)),
+        actualPay: Number.isFinite(actualPay) ? actualPay : 0,
+        notes: notes || ""
+      };
+
+      const items = loadData();
+      items.push(item);
+      saveData(items);
+
+      clearActiveShift();
+      syncClockUI();
+      render();
+    });
+
+    // ---- Manual entry ----
+    addBtn.addEventListener("click", () => {
+      const rate = Number(rateEl.value || 0);
+      const date = dateEl.value;
+      const start = startEl.value;
+      const end = endEl.value;
+      const breakMin = Number(breakEl.value || 0);
+
+      if (!date) { alert("Please pick a date."); return; }
+      if (!start || !end) { alert("Please enter start and end times."); return; }
+
+      const hrs = hoursBetween(start, end, breakMin);
+      if (hrs === null) {
+        alert("Time looks off. Make sure end time is after start time (same day).");
+        return;
+      }
+
+      const actualPayRaw = actualPayEl.value;
+      const actualPay = actualPayRaw === "" ? 0 : Number(actualPayRaw);
+
+      const item = {
+        id: uid(),
+        rate,
+        date,
+        start,
+        end,
+        breakMin,
+        hours: Number(hrs.toFixed(4)),
+        actualPay: Number.isFinite(actualPay) ? actualPay : 0,
+        notes: notesEl.value || ""
+      };
+
+      const items = loadData();
+      items.push(item);
+      saveData(items);
+
+      startEl.value = "";
+      endEl.value = "";
+      breakEl.value = "0";
+      actualPayEl.value = "";
+      notesEl.value = "";
+
+      render();
+    });
+
+    clearFormBtn.addEventListener("click", () => {
+      startEl.value = "";
+      endEl.value = "";
+      breakEl.value = "0";
+      actualPayEl.value = "";
+      notesEl.value = "";
+    });
+
+    viewModeEl.addEventListener("change", render);
+    weekStartEl.addEventListener("change", render);
+    yearSelectEl.addEventListener("change", render);
+
+    // ---- CSV export/import + wipe ----
+    exportBtn.addEventListener("click", () => {
+      const items = loadData().sort((a,b) => (a.date > b.date ? 1 : -1));
+      const header = ["id","date","start","end","breakMin","hours","rate","expectedPay","actualPay","notes"];
+      const lines = [header.join(",")];
+
+      for (const it of items) {
+        const expectedPay = computeExpected(it);
+        const row = [
+          it.id,
+          it.date,
+          it.start,
+          it.end,
+          Number(it.breakMin||0),
+          Number(it.hours||0),
+          Number(it.rate||0),
+          Number(expectedPay||0),
+          Number(it.actualPay||0),
+          `"${String(it.notes||"").replaceAll('"','""')}"`
+        ];
+        lines.push(row.join(","));
+      }
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "car_wash_time_tracker_export.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    importBtn.addEventListener("click", () => importFileEl.click());
+
+    importFileEl.addEventListener("change", async () => {
+      const file = importFileEl.files?.[0];
+      if (!file) return;
+
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) { alert("That CSV looks empty."); return; }
+
+      const header = lines[0].split(",").map(s => s.trim());
+      const idx = (name) => header.indexOf(name);
+
+      const required = ["id","date","start","end","breakMin","hours","rate","actualPay","notes"];
+      for (const r of required) {
+        if (idx(r) === -1) {
+          alert("CSV missing column: " + r);
+          return;
+        }
+      }
+
+      const items = [];
+      for (let i=1; i<lines.length; i++) {
+        const line = lines[i];
+        const parts = [];
+        let cur = "", inQuotes = false;
+        for (let c=0; c<line.length; c++) {
+          const ch = line[c];
+          if (ch === '"' ) {
+            if (inQuotes && line[c+1] === '"') { cur += '"'; c++; }
+            else inQuotes = !inQuotes;
+          } else if (ch === ',' && !inQuotes) {
+            parts.push(cur); cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        parts.push(cur);
+
+        const it = {
+          id: parts[idx("id")] || uid(),
+          date: parts[idx("date")] || "",
+          start: parts[idx("start")] || "",
+          end: parts[idx("end")] || "",
+          breakMin: Number(parts[idx("breakMin")] || 0),
+          hours: Number(parts[idx("hours")] || 0),
+          rate: Number(parts[idx("rate")] || 0),
+          actualPay: Number(parts[idx("actualPay")] || 0),
+          notes: (parts[idx("notes")] || "").replaceAll(/^"|"$/g,"")
+        };
+        items.push(it);
+      }
+
+      saveData(items);
+      importFileEl.value = "";
+      render();
+    });
+
+    wipeBtn.addEventListener("click", () => {
+      if (!confirm("This will delete ALL saved shifts on this device. Continue?")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(ACTIVE_SHIFT_KEY);
+      render();
+    });
+
+    // Init
+    setClockRatePill();
+    syncClockUI();
+    render();
+  </script>
+</body>
+</html>
